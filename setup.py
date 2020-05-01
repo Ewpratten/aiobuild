@@ -11,6 +11,7 @@ project_config = {
         "readme_file":"README.md" # Filepath for project README (blank for none)
     },
     "module_info":{
+        "path":"testmod", # Module path
         "is_script": False, # If true, this module is a console script
         "entrypoints":[], # Fill this with any entrypoints for console script
         "requirements":[ # Project requirements
@@ -52,6 +53,9 @@ import subprocess
 import os
 import sys
 from setuptools import setup
+import setuptools.command.build_py
+import distutils.cmd
+import distutils.log
 
 class RequiredModule:
     """Info about required modules"""
@@ -140,6 +144,47 @@ class SetupCFG:
                 f.write(self.data)
                 f.close()
 
+class PylintCommand(distutils.cmd.Command):
+    """A custom command to run Pylint on all Python source files."""
+    
+    description = 'run Pylint on Python source files'
+    
+    def initialize_options(self):
+        pass
+
+    def finalize_options(self):
+        pass
+    
+    def run(self):
+        """Run command."""
+        
+        # Build lint command
+        command = [sys.executable, "-m", "pylint", project_config["module_info"]["path"]]
+        
+        self.announce(
+            'Running command: %s' % str(command),
+            level=distutils.log.INFO)
+        
+        try:
+            subprocess.check_call(command)
+        except subprocess.CalledProcessError as e:
+            print("Pylint encountered an error. Is the project module real?")
+        
+
+class LintCommand(setuptools.command.build_py.build_py):
+    """Lint all the things"""
+    
+    description = 'Lint and fix all source files'
+    
+    def run(self) ->None:
+        
+        # Exec all steps
+        self.run_command("pylint")
+        
+        # Run self
+        setuptools.command.build_py.build_py.run(self)
+
+
 def _setup_self()->None:
     """Set up everything required by the script"""
     
@@ -162,11 +207,14 @@ def _setup_self()->None:
 def main() ->None:
     """Main script"""
     
-    _setup_self()  
+    _setup_self()
     
     # Build setup script
     setup(
-        
+        cmdclass={
+            "pylint":PylintCommand,
+            "lint":LintCommand
+        }
     )
                     
 
