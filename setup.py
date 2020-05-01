@@ -41,21 +41,22 @@ select = B,C,E,F,W,T4
 
 mypy_cfg = """
 [mypy]
-files=best_practices,test
 ignore_missing_imports=true
 """
 
 ### Build script ###
 
-from typing import List, Generator
-import importlib
-import subprocess
-import os
-import sys
-from setuptools import setup
-import setuptools.command.build_py
 import distutils.cmd
 import distutils.log
+import importlib
+import os
+import subprocess
+import sys
+from typing import Generator, List
+
+import setuptools.command.build_py
+from setuptools import setup
+
 
 class RequiredModule:
     """Info about required modules"""
@@ -157,18 +158,56 @@ class PylintCommand(distutils.cmd.Command):
     
     def run(self):
         """Run command."""
-        
-        # Build lint command
-        command = [sys.executable, "-m", "pylint", project_config["module_info"]["path"]]
-        
-        self.announce(
-            'Running command: %s' % str(command),
-            level=distutils.log.INFO)
-        
+               
         try:
-            subprocess.check_call(command)
+            subprocess.check_call([sys.executable, "-m", "pylint", project_config["module_info"]["path"]])
         except subprocess.CalledProcessError as e:
             print("Pylint encountered an error. Is the project module real?")
+
+class MyPyCommand(distutils.cmd.Command):
+    """A custom command to run mypy on all Python source files."""
+    
+    description = 'run mypy on Python source files'
+    
+    def initialize_options(self):
+        pass
+
+    def finalize_options(self):
+        pass
+    
+    def run(self):
+        """Run command."""
+        subprocess.check_call([sys.executable, "-m", "mypy", project_config["module_info"]["path"]])
+
+class BlackCommand(distutils.cmd.Command):
+    """A custom command to run black on all Python source files."""
+    
+    description = 'run black on Python source files'
+    
+    def initialize_options(self):
+        pass
+
+    def finalize_options(self):
+        pass
+    
+    def run(self):
+        """Run command."""
+        subprocess.check_call([sys.executable, "-m", "black", project_config["module_info"]["path"]])
+
+class IsortCommand(distutils.cmd.Command):
+    """A custom command to run isort on all Python source files."""
+    
+    description = 'run isort on Python source files'
+    
+    def initialize_options(self):
+        pass
+
+    def finalize_options(self):
+        pass
+    
+    def run(self):
+        """Run command."""
+        subprocess.check_call([sys.executable, "-m", "isort", "-y", "--recursive", project_config["module_info"]["path"]])
         
 
 class LintCommand(setuptools.command.build_py.build_py):
@@ -179,7 +218,14 @@ class LintCommand(setuptools.command.build_py.build_py):
     def run(self) ->None:
         
         # Exec all steps
-        self.run_command("pylint")
+        try:
+            self.run_command("exec_black")
+            self.run_command("exec_isort")
+            self.run_command("exec_mypy")
+            self.run_command("exec_pylint")
+        except subprocess.CalledProcessError as e:
+            print("Linting error. Stopped.")
+            sys.exit(1)
         
         # Run self
         setuptools.command.build_py.build_py.run(self)
@@ -212,7 +258,10 @@ def main() ->None:
     # Build setup script
     setup(
         cmdclass={
-            "pylint":PylintCommand,
+            "exec_pylint":PylintCommand,
+            "exec_mypy":MyPyCommand,
+            "exec_black":BlackCommand,
+            "exec_isort":IsortCommand,
             "lint":LintCommand
         }
     )
