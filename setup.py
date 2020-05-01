@@ -19,6 +19,31 @@ project_config = {
     }
 }
 
+### Configuration file sections ###
+
+isort_cfg = """
+[isort]
+multi_line_output=3
+include_trailing_comma=True
+force_grid_wrap=0
+use_parentheses=True
+line_length=88
+"""
+
+flake8_cfg = """
+[flake8]
+ignore = E203, E266, E501, W503
+max-line-length = 88
+max-complexity = 18
+select = B,C,E,F,W,T4
+"""
+
+mypy_cfg = """
+[mypy]
+files=best_practices,test
+ignore_missing_imports=true
+"""
+
 ### Build script ###
 
 from typing import List, Generator
@@ -28,18 +53,33 @@ import os
 import sys
 from setuptools import setup
 
+class RequiredModule:
+    """Info about required modules"""
+    
+    package:str
+    do_import:bool
+    import_name:str
+    
+    def __init__(self, package:str, do_import:bool, import_name:str=""):
+        self.package = package
+        self.do_import = do_import
+        self.import_name = import_name if import_name != "" else package
+
 class MetaInstall:
     """Tools for installing required packages for the script"""
     
     # Setup requirements
-    self_requires:list = ["mypy", "pylint", "pytest", "cython", "black", "isort"]
+    self_requires:list = [RequiredModule("mypy", True), RequiredModule("pylint", True), 
+                          RequiredModule("pytest", True), RequiredModule("pytest-cov", True, "pytest"), 
+                          RequiredModule("cython", True), RequiredModule("black", True), 
+                          RequiredModule("isort", True), RequiredModule("flake8", True)]
     
     def _check_loadable_packages(self) -> Generator[str, None, None]:
         """Returns a list of packages that are needed, but not installed"""
         for requirement in self.self_requires:
             try:
-                mod = importlib.import_module(requirement)
-                setattr(sys.modules[__name__], "requirement", mod)
+                mod = importlib.import_module(requirement.import_name)
+                setattr(sys.modules[__name__], requirement.import_name, mod)
             except:
                 yield requirement
     
@@ -100,10 +140,8 @@ class SetupCFG:
                 f.write(self.data)
                 f.close()
 
-        
-
-def main() ->None:
-    """Main script"""
+def _setup_self()->None:
+    """Set up everything required by the script"""
     
     # Check required packages
     meta_install:MetaInstall = MetaInstall()
@@ -111,25 +149,25 @@ def main() ->None:
     print("Loaded packages")
     
     # Set up isort
-    SetupCFG("isort","""
-[isort]
-multi_line_output=3
-include_trailing_comma=True
-force_grid_wrap=0
-use_parentheses=True
-line_length=88
-""").inject()
+    SetupCFG("isort",isort_cfg).inject()
     
-    # if not check_isort_setup():
-    #     print("Isort has not been configured. Injecting configuration")
-    #     inject_isort_config()
+    # Set up flake8
+    SetupCFG("flake8", flake8_cfg).inject()
+    
+    # Set up mypy
+    SetupCFG("mypy", mypy_cfg).inject()
+    
+        
+
+def main() ->None:
+    """Main script"""
+    
+    _setup_self()  
     
     # Build setup script
     setup(
         
     )
-    
-    
                     
 
 if __name__ == "__main__":
