@@ -8,7 +8,14 @@ project_config = {
     "meta":{
         "name":"AIOBuild", # Project name
         "description":"My All-In-One Python build setup", # Project description
-        "readme_file":"README.md" # Filepath for project README (blank for none)
+        "readme_file":"README.md", # Filepath for project README (blank for none)
+        "version":"1.0",
+        "license":"GPLv3",
+        "url":"https://github.com/Ewpratten/aiobuild",
+        "author":{
+            "name":"Evan Pratten",
+            "email":"ewpratten@retrylife.ca"
+        }
     },
     "module_info":{
         "path":"testmod", # Module path
@@ -347,8 +354,19 @@ def main() ->None:
             "lint":LintCommand,
             "test":TestCommand,
             "check":CheckCommand
-        }
-    )
+        },
+        name=project_config["meta"]["name"],
+        version=project_config["meta"]["version"],
+        description=project_config["meta"]["description"],
+        license=project_config["meta"]["license"],
+        long_description=open(project_config["meta"]["readme_file"], 'r').read(),
+        author=project_config["meta"]["author"]["name"],
+        author_email=project_config["meta"]["author"]["email"],
+        url=project_config["meta"]["url"],
+        packages=[project_config["module_info"]["path"]],
+        install_requires=project_config["module_info"]["requirements"],
+        entry_points=project_config["module_info"]["entrypoints"]
+       )
                     
 
 if __name__ == "__main__":
