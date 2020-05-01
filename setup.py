@@ -31,13 +31,7 @@ use_parentheses=True
 line_length=88
 """
 
-flake8_cfg = """
-[flake8]
-ignore = E203, E266, E501, W503
-max-line-length = 88
-max-complexity = 18
-select = B,C,E,F,W,T4
-"""
+bandit_skips = ["B603"]
 
 mypy_cfg = """
 [mypy]
@@ -77,7 +71,7 @@ class MetaInstall:
     self_requires:list = [RequiredModule("mypy", True), RequiredModule("pylint", True), 
                           RequiredModule("pytest", True), RequiredModule("pytest-cov", True, "pytest"), 
                           RequiredModule("cython", True), RequiredModule("black", True), 
-                          RequiredModule("isort", True), RequiredModule("flake8", True)]
+                          RequiredModule("isort", True), RequiredModule("bandit", True)]
     
     def _check_loadable_packages(self) -> Generator[str, None, None]:
         """Returns a list of packages that are needed, but not installed"""
@@ -208,6 +202,21 @@ class IsortCommand(distutils.cmd.Command):
     def run(self):
         """Run command."""
         subprocess.check_call([sys.executable, "-m", "isort", "-y", "--recursive", project_config["module_info"]["path"]])
+
+class BanditCommand(distutils.cmd.Command):
+    """A custom command to run bandit on all Python source files."""
+    
+    description = 'run bandit on Python source files'
+    
+    def initialize_options(self):
+        pass
+
+    def finalize_options(self):
+        pass
+    
+    def run(self):
+        """Run command."""
+        subprocess.check_call([sys.executable, "-m", "bandit", "-r", "-s",  ','.join(bandit_skips), project_config["module_info"]["path"]])
         
 
 class LintCommand(setuptools.command.build_py.build_py):
@@ -221,6 +230,7 @@ class LintCommand(setuptools.command.build_py.build_py):
         try:
             self.run_command("exec_black")
             self.run_command("exec_isort")
+            self.run_command("exec_bandit")
             self.run_command("exec_mypy")
             self.run_command("exec_pylint")
         except subprocess.CalledProcessError as e:
@@ -242,8 +252,6 @@ def _setup_self()->None:
     # Set up isort
     SetupCFG("isort",isort_cfg).inject()
     
-    # Set up flake8
-    SetupCFG("flake8", flake8_cfg).inject()
     
     # Set up mypy
     SetupCFG("mypy", mypy_cfg).inject()
@@ -255,6 +263,7 @@ def main() ->None:
     
     _setup_self()
     
+    
     # Build setup script
     setup(
         cmdclass={
@@ -262,7 +271,8 @@ def main() ->None:
             "exec_mypy":MyPyCommand,
             "exec_black":BlackCommand,
             "exec_isort":IsortCommand,
-            "lint":LintCommand
+            "exec_bandit":BanditCommand,
+            "lint":LintCommand 
         }
     )
                     
