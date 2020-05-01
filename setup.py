@@ -17,6 +17,9 @@ project_config = {
         "requirements":[ # Project requirements
             
         ]
+    },
+    "tests":{
+        "min_coverage":70 # Minimum coverage percent for pass
     }
 }
 
@@ -47,6 +50,7 @@ import os
 import subprocess
 import sys
 from typing import Generator, List
+from pprint import pprint
 
 import setuptools.command.build_py
 from setuptools import setup
@@ -69,7 +73,7 @@ class MetaInstall:
     
     # Setup requirements
     self_requires:list = [RequiredModule("mypy", True), RequiredModule("pylint", True), 
-                          RequiredModule("pytest", True), RequiredModule("pytest-cov", True, "pytest"), 
+                          RequiredModule("pytest", True), RequiredModule("pytest-cov", True, "coverage"), 
                           RequiredModule("cython", True), RequiredModule("black", True), 
                           RequiredModule("isort", True), RequiredModule("bandit", True)]
     
@@ -85,7 +89,7 @@ class MetaInstall:
     def _install_packages(self, packages: List[str]) -> None:
         """Install all packages defined in a list"""
         for package in packages:
-            subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+            subprocess.check_call([sys.executable, "-m", "pip", "install", package.import_name])
     
     def self_install_packages(self) -> None:
         """Automatically install all packages needed by this script"""
@@ -104,7 +108,7 @@ class MetaInstall:
             # If packages are still missing, abort
             if missing_packages:
                 print("AIOBuild was unable to install the following required modules. Please install them manually")
-                print(missing_packages)
+                pprint([p.package for p in missing_packages])
                 sys.exit(1)
 
 class SetupCFG:
@@ -217,6 +221,36 @@ class BanditCommand(distutils.cmd.Command):
     def run(self):
         """Run command."""
         subprocess.check_call([sys.executable, "-m", "bandit", "-r", "-s",  ','.join(bandit_skips), project_config["module_info"]["path"]])
+
+class PyTestCommand(distutils.cmd.Command):
+    """A custom command to run pytest on all Python source files."""
+    
+    description = 'run pytest on Python source files'
+    
+    def initialize_options(self):
+        pass
+
+    def finalize_options(self):
+        pass
+    
+    def run(self):
+        """Run command."""
+        subprocess.check_call([sys.executable, "-m", "pytest", project_config["module_info"]["path"]])
+
+class PyTestCovCommand(distutils.cmd.Command):
+    """A custom command to run pytest-cov on all Python source files."""
+    
+    description = 'run pytest-cov on Python source files'
+    
+    def initialize_options(self):
+        pass
+
+    def finalize_options(self):
+        pass
+    
+    def run(self):
+        """Run command."""
+        subprocess.check_call([sys.executable, "-m", "pytest", "--cov", project_config["module_info"]["path"], "--cov-fail-under", str(project_config["tests"]["min_coverage"])])
         
 
 class LintCommand(setuptools.command.build_py.build_py):
@@ -235,6 +269,42 @@ class LintCommand(setuptools.command.build_py.build_py):
             self.run_command("exec_pylint")
         except subprocess.CalledProcessError as e:
             print("Linting error. Stopped.")
+            sys.exit(1)
+        
+        # Run self
+        setuptools.command.build_py.build_py.run(self)
+
+class TestCommand(setuptools.command.build_py.build_py):
+    """Test all the things"""
+    
+    description = 'Test source files'
+    
+    def run(self) ->None:
+        
+        # Exec all steps
+        try:
+            # self.run_command("exec_pytest")
+            self.run_command("exec_pytestcov")
+        except subprocess.CalledProcessError as e:
+            print("Testing error. Stopped.")
+            sys.exit(1)
+        
+        # Run self
+        setuptools.command.build_py.build_py.run(self)
+
+class CheckCommand(setuptools.command.build_py.build_py):
+    """Check all the things"""
+    
+    description = 'Check source files'
+    
+    def run(self) ->None:
+        
+        # Exec all steps
+        try:
+            self.run_command("lint")
+            self.run_command("test")
+        except subprocess.CalledProcessError as e:
+            print("Checking error. Stopped.")
             sys.exit(1)
         
         # Run self
@@ -272,7 +342,11 @@ def main() ->None:
             "exec_black":BlackCommand,
             "exec_isort":IsortCommand,
             "exec_bandit":BanditCommand,
-            "lint":LintCommand 
+            "exec_pytest":PyTestCommand,
+            "exec_pytestcov":PyTestCovCommand,
+            "lint":LintCommand,
+            "test":TestCommand,
+            "check":CheckCommand
         }
     )
                     
