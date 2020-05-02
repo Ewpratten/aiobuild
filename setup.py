@@ -168,6 +168,7 @@ class PylintCommand(distutils.cmd.Command):
             subprocess.check_call([sys.executable, "-m", "pylint", project_config["module_info"]["path"]])
         except subprocess.CalledProcessError as e:
             print("Pylint encountered an error. Is the project module real?")
+            raise e
 
 class MyPyCommand(distutils.cmd.Command):
     """A custom command to run mypy on all Python source files."""
